@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8" />
+    <title>高警訊藥物診斷遊戲</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f0f8ff;
+            text-align: center;
+            padding: 40px;
+        }
+        h1 {
+            color: #2c3e50;
+        }
+        #nameSection, #gameSection, #resultSection {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        #nameSection input {
+            width: 70%;
+            padding: 10px;
+            font-size: 16px;
+            margin-right: 10px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+        }
+        #nameSection button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            border-radius: 4px;
+            border: none;
+            background-color: #2c3e50;
+            color: white;
+        }
+        #patient-symptom {
+            font-size: 20px;
+            margin-bottom: 20px;
+            min-height: 100px;
+            white-space: pre-wrap;
+            text-align: left;
+            background-color: #e9f0ff;
+            padding: 15px;
+            border-radius: 6px;
+        }
+        .med-btn {
+            display: block;
+            margin: 10px auto;
+            padding: 10px 20px;
+            font-size: 16px;
+            width: 80%;
+            max-width: 500px;
+            cursor: pointer;
+            border-radius: 5px;
+            border: 1px solid #888;
+            background-color: #e6f0ff;
+            transition: background-color 0.3s;
+            text-align: left;
+        }
+        .med-btn:hover:not(:disabled) {
+            background-color: #c0d9ff;
+        }
+        .med-btn:disabled {
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+        #answer-feedback {
+            margin-top: 20px;
+            font-size: 18px;
+            font-weight: bold;
+            min-height: 60px;
+            text-align: left;
+            padding: 0 20px;
+        }
+        #next-btn {
+            margin-top: 30px;
+            padding: 10px 30px;
+            font-size: 16px;
+            cursor: pointer;
+            border-radius: 5px;
+            border: none;
+            background-color: #2c3e50;
+            color: white;
+        }
+        #next-btn:disabled {
+            background-color: #999;
+            cursor: not-allowed;
+        }
+        #progress {
+            margin-top: 15px;
+            color: #555;
+            font-size: 16px;
+        }
+        #timer {
+            font-size: 20px;
+            color: red;
+            margin-bottom: 15px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+<h1>🩺 高警訊藥物診斷遊戲</h1>
+
+<div id="nameSection">
+    <input type="text" id="playerName" placeholder="請輸入您的姓名" autocomplete="off" />
+    <button id="startBtn">開始遊戲</button>
+</div>
+
+<div id="gameSection" style="display:none;">
+    <div id="progress"></div>
+    <div id="timer">⏱ 30秒</div>
+    <div id="patient-symptom">載入中...</div>
+    <button class="med-btn" onclick="checkAnswer(0)">選項1</button>
+    <button class="med-btn" onclick="checkAnswer(1)">選項2</button>
+    <button class="med-btn" onclick="checkAnswer(2)">選項3</button>
+    <button class="med-btn" onclick="checkAnswer(3)">選項4</button>
+    <div id="answer-feedback"></div>
+    <button id="next-btn" onclick="nextPatient()" disabled>下一題 ➡</button>
+</div>
+
+<div id="resultSection" style="display:none; max-width:600px; margin:30px auto; text-align:left;">
+</div>
+
+ <!-- 音效 -->
+    <!-- 答對叮咚聲 -->
+    <audio id="audioCorrect" src="https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg" preload="auto"></audio>
+    <!-- 答錯音效 -->
+    <audio id="audioWrong" src="https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg" preload="auto"></audio>
+    <!-- 倒數5秒警告 -->
+    <audio id="audioWarning" src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg" preload="auto"></audio>
+
+
+<script>
+    // 你的題庫（已改成你提供的題目）
+    const questions = [
+        {
+            question: "1. Amiodarone 的主要適應症是？",
+            options: ["A. 心搏過緩", "B. 高血糖", " C. 心律不整", "D. 高血鉀"],
+            correctAnswer: 2,
+            explanation: "Amiodarone 主要用於治療心律不整。"
+        },
+        {
+            question: "2. 使用 Atropine 時應注意哪個副作用？",
+            options: ["A. 低血壓", " B. 心跳過快", "C. 噁心嘔吐", "D. 血糖升高"],
+            correctAnswer: 1,
+            explanation: "Atropine 常見副作用是心跳過快。"
+        },
+        {
+            question: "3. Sodium bicarbonate 的主要用途是？",
+            options: ["A. 促進血壓上升", " B. 矯正代謝性酸中毒", "C. 增強止痛作用", "D. 降低血糖"],
+            correctAnswer: 1,
+            explanation: "Sodium bicarbonate 用於矯正代謝性酸中毒。"
+        },
+        {
+            question: "4. Adenosine 投與時的注意事項為？",
+            options: ["A. 需稀釋後緩慢滴注", "B. 適用於心搏過緩患者", " C. 需快速靜脈推注並立即沖洗", "D. 與鈣劑合併使用效果更佳"],
+            correctAnswer: 2,
+            explanation: "Adenosine 需快速靜脈推注並立即沖洗。"
+        },
+        {
+            question: "5. Norepinephrine要稀釋於哪種點滴?",
+            options: ["A. N/S", "B. H/S", " C. D5W", "D. D10W"],
+            correctAnswer: 2,
+            explanation: "Norepinephrine 需稀釋於D5W。"
+        },
+        {
+            question: "6. KCl 需特別注意下列哪點？",
+            options: [" A. 絕不可靜脈直接推注", "B. 可稀釋後皮下注射", "C. 空腹服用效果較佳", "D. 與葡萄糖合併更安全"],
+            correctAnswer: 0,
+            explanation: "KCl 不可靜脈直接推注，易致死。"
+        },
+        {
+            question: "7. 一位病人突發心跳停止，CPR 進行中，已裝上去顫器但尚未恢復心跳。請問此時該立即投與？",
+            options: [" A. Epinephrine", "B. Amiodarone", "C. Midazolam", "D. Norepinephrine"],
+            correctAnswer: 0,
+            explanation: "心跳停止時應立即投與 Epinephrine。"
+        },
+        {
+            question: "8. 一位 septic shock 病人，BP 78/45 mmHg、HR 118 bpm，尿量 < 0.3 ml/kg/hr。醫師開立 Dopamine IVF 滴注。請問 Dopamine 的劑量選擇會依賴下列哪個目的？",
+            options: ["A. 小劑量主要升壓作用", " B. 中劑量主要增加心輸出量與腎灌流", "C. 高劑量促進利尿", "D. 任意劑量皆會造成心搏過緩"],
+            correctAnswer: 1,
+            explanation: "Dopamine 中劑量主要增加心輸出量與腎灌流。"
+        },
+        {
+            question: "9. 一位主訴胸悶疼痛的病人被診斷為急性心絞痛，醫師立即給予 Nitroglycerin 滴注。護理人員應特別觀察哪一項變化？",
+            options: ["A. 肝功能酵素是否上升", " B. 血壓是否過度下降造成暈厥", "C. 體溫是否升高", "D. 是否出現便秘"],
+            correctAnswer: 1,
+            explanation: "Nitroglycerin 可能導致血壓過度下降而暈厥。"
+        },
+        {
+            question: "10. 哪種藥物快速使用會造成橋腦髓鞘溶解？",
+            options: ["A. Tranexamic Acid", " B. 3% NaCl/500ML", "C. Magnesium Sulfate", "D. Norepinephrine"],
+            correctAnswer: 1,
+            explanation: "3% NaCl 快速使用可能造成橋腦髓鞘溶解。"
+        }
+    ];
+
+    const formUrl = 'https://docs.google.com/forms/d/e/1FAIpQLSeadu_EhQ83S2eZafsY2n1PKG9tynRsmB-kONYw_OyfdaNsWg/formResponse';
+    const entryName = 'entry.1434240375';
+    const entryScore = 'entry.335688250';
+
+    let questionOrder = [];
+    let currentIndex = 0;
+    let score = 0;
+    let timeLeft = 30;
+    let timer;
+
+    const playerNameInput = document.getElementById('playerName');
+    const startBtn = document.getElementById('startBtn');
+    const nameSection = document.getElementById('nameSection');
+    const gameSection = document.getElementById('gameSection');
+    const resultSection = document.getElementById('resultSection');
+
+    const symptomDiv = document.getElementById('patient-symptom');
+    const buttons = document.querySelectorAll('.med-btn');
+    const feedbackDiv = document.getElementById('answer-feedback');
+    const nextBtn = document.getElementById('next-btn');
+    const progressDiv = document.getElementById('progress');
+    const timerDiv = document.getElementById('timer');
+
+    const audioCorrect = document.getElementById('audioCorrect');
+    const audioWrong = document.getElementById('audioWrong');
+    const audioCountdown = document.getElementById('audioCountdown');
+
+    startBtn.addEventListener('click', () => {
+        const name = playerNameInput.value.trim();
+        if (!name) {
+            alert("請輸入姓名才能開始遊戲！");
+            return;
+        }
+        nameSection.style.display = 'none';
+        gameSection.style.display = 'block';
+        resetGame();
+        shuffleQuestions();
+        loadQuestion();
+    });
+
+    // 洗牌函式: Fisher-Yates 洗牌法
+    function shuffleQuestions() {
+        questionOrder = [...Array(questions.length).keys()];
+        for (let i = questionOrder.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [questionOrder[i], questionOrder[j]] = [questionOrder[j], questionOrder[i]];
+        }
+    }
+
+    function resetGame() {
+        currentIndex = 0;
+        score = 0;
+        timeLeft = 30;
+        feedbackDiv.textContent = '';
+        nextBtn.disabled = true;
+        nextBtn.style.display = 'inline-block';
+        resultSection.style.display = 'none';
+    }
+
+    function loadQuestion() {
+        if (timer) clearInterval(timer);
+        timeLeft = 30;
+        timerDiv.textContent = `⏱ ${timeLeft}秒`;
+        feedbackDiv.textContent = '';
+        nextBtn.disabled = true;
+
+        const q = questions[questionOrder[currentIndex]];
+        symptomDiv.textContent = q.question;
+        buttons.forEach((btn, i) => {
+            btn.textContent = q.options[i];
+            btn.disabled = false;
+        });
+
+        progressDiv.textContent = `題目 ${currentIndex + 1} / ${questions.length}`;
+
+        timer = setInterval(() => {
+            timeLeft--;
+            timerDiv.textContent = `⏱ ${timeLeft}秒`;
+
+            if (timeLeft <= 5 && timeLeft > 0) {
+                audioCountdown.play().catch(() => {});
+            }
+
+            if (timeLeft <= 0) {
+                clearInterval(timer);
+                checkAnswer(-1);
+            }
+        }, 1000);
+    }
+
+    function checkAnswer(selectedIndex) {
+        if (timer) clearInterval(timer);
+        const q = questions[questionOrder[currentIndex]];
+        buttons.forEach(btn => btn.disabled = true);
+        nextBtn.disabled = false;
+
+        if (selectedIndex === q.correctAnswer) {
+            score++;
+            feedbackDiv.style.color = "green";
+            feedbackDiv.textContent = " 正確！" + q.explanation;
+            audioCorrect.play().catch(() => {});
+        } else if (selectedIndex === -1) {
+            feedbackDiv.style.color = "red";
+            feedbackDiv.textContent = "❌ 超過時間！" + q.explanation;
+            audioWrong.play().catch(() => {});
+        } else {
+            feedbackDiv.style.color = "red";
+            feedbackDiv.textContent = "❌ 錯誤！" + q.explanation;
+            audioWrong.play().catch(() => {});
+        }
+    }
+
+    function nextPatient() {
+        currentIndex++;
+        if (currentIndex >= questions.length) {
+            showResults();
+        } else {
+            loadQuestion();
+        }
+    }
+
+    function showResults() {
+        gameSection.style.display = 'none';
+        resultSection.style.display = 'block';
+
+        let resultMessage = "";
+        if (score >= 8) {
+            resultMessage = "👍 很棒的急救知識！";
+        } else if (score >= 5) {
+            resultMessage = "👌 還不錯，再練練！";
+        } else {
+            resultMessage = "🧐 加油，再試一次！";
+        }
+
+        resultSection.innerHTML = `
+            <h2>🎉 所有題目完成！</h2>
+            <p>姓名：<strong>${escapeHtml(playerNameInput.value.trim())}</strong></p>
+            <p>你總共答對了 <strong>${score}</strong> 題！</p>
+            <p>${resultMessage}</p>
+            <button onclick="restartGame()">重新開始</button>
+        `;
+
+        sendScoreToGoogleForm(playerNameInput.value.trim(), score);
+    }
+
+    function restartGame() {
+        playerNameInput.value = "";
+        nameSection.style.display = 'block';
+        gameSection.style.display = 'none';
+        resultSection.style.display = 'none';
+    }
+
+    function sendScoreToGoogleForm(name, score) {
+        const formData = new FormData();
+        formData.append(entryName, name);
+        formData.append(entryScore, score);
+
+        fetch(formUrl, {
+            method: 'POST',
+            mode: 'no-cors',
+            body: formData
+        }).catch((e) => {
+            console.warn("成績送出可能失敗，但遊戲可繼續。", e);
+        });
+    }
+
+    // 避免XSS輸入注入攻擊
+    function escapeHtml(text) {
+        return text.replace(/[&<>"']/g, function(m) {
+            return {'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'}[m];
+        });
+    }
+</script>
+
+</body>
+</html>
